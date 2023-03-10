@@ -37,7 +37,7 @@ client.on_message do |message|
       { role: 'user', content: message }
     end
 
-    should_respond = rand(1..100) == 1 || message.body.start_with?("#{NICK}: ")
+    should_respond = rand(1..100) == 1 || (message.body && message.body.start_with?("#{NICK}:"))
     if should_respond
       # Use ChatGPT API
       system_message = {
@@ -58,7 +58,7 @@ client.on_message do |message|
 
       # Send response
       client.privmsg CHANNEL, ":#{message.from}: #{retort}"
-        end
+    end
   end
 end
 
