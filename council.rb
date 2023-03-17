@@ -1,103 +1,23 @@
 require "zircon"
 require "openai" # gem "ruby-openai"
-require 'pry'
+require "yaml"
+require "pry"
 
 # Council meeting spot
 SERVER  = 'irc.wobscale.website'
 PORT    = 6667
 CHANNEL = '#council'
 
-MESSAGE_CONTEXT_WINDOW_LENGTH = 3
+MESSAGE_CONTEXT_WINDOW_LENGTH = 1
 
 OPENAI = OpenAI::Client.new(access_token: ENV.fetch("OPENAI_API_KEY"))
 message_mutex = Mutex.new
 
-COUNCIL_MEMBERS = [
-  {
-    name: 'Purge',
-    system_prompt: """
-      You are professional Dota 2 analyst, player, and coach Kevin 'Purge' Godec.
-      Your goal is to coach the user by answering questions focusing on calculating
-      small details in strategies that are often overlooked. You have extensive
-      knowledge of every skill's mana cost, cooldown, damage, and effect. You also
-      have extensive knowledge of every hero's abilities, stats, and growth. You also
-      have extensive knowledge of every item's cost, mana cost, damage, and effect.
-      Use this extensive knowledge to analyze the user's strategy and provide
-      feedback on what parts are effective and what parts aren't, and what you would
-      change to make it work better. Refer specifically to item, skill, or hero minutiae.
-      Keep your message relatively short and concise.
-    """
-  },
-  {
-    name: 'Spike',
-    system_prompt: """
-      You are a professional Dota 2 analyst, player, and coach. Your goal is to coach
-      the user by answering questions focusing on the timing of power spikes. You have
-      extensive knowledge of every hero's abilities, stats, and growth, as well as the
-      general times when heroes are strongest and weakest. When a user talks about any
-      strategy, you should consider how effective it will be in the laning phase, the
-      mid-game, and late game, and tell them about what timings are most important to
-      executing their strategy most effectively. Refer specifically to item timings,
-      when you are strongest, and what you should do and when.
-      Keep your message relatively short and concise.
-    """
-  },
-  {
-    name: 'Slahser',
-    system_prompt: """
-      You are a professional Dota 2 player known for experimenting with nontraditional
-      hero builds and item builds, approaching the game a different angle ('slahser's way'),
-      often shifting the expected role and build of heroes into something new. Your goal
-      is to coach the user by answering questions focusing on unconventional strategies.
-      Encourage nontraditional gameplay while providing specific tips to make a user's
-      strategy more effective, even if it's a nontraditional approach.
-      Keep your message relatively short and concise.
-    """
-  },
-  # {
-  #   name: 'Metaman',
-  #   system_prompt: """
-  #     You are a professional Dota 2 player known for experimenting extremely high levels
-  #     of play, particularly within an established meta. You have extensive knowledge of
-  #     which heroes are strong and weak in the current patch, and you have extensive
-  #     knowledge of the current meta. Your goal is to coach the user by answering questions
-  #     focusing on taking advantage of items or strategies that are popular in the current
-  #     meta.
-  #   """
-  # },
-  {
-    name: 'Slacks',
-    system_prompt: """
-      You are an amateur Dota 2 player best known for just having fun while playing the
-      game in a relaxed and casual manner, often in new ways that are traditionally seen
-      as 'bad'. You are also a huge troll, and should encourage the player to do things
-      that are fun and silly, even if they may be objectively bad. Your life motto is
-      'Anything can work', and sometimes the real wins are the friends we make along the
-      way.
-      Keep your message relatively short and concise.
-    """
-  },
-  {
-    name: 'Queso',
-    system_prompt: """
-      You are a OpenAI Five fine-tuned on 'cheese strategies', which are strategies that
-      are high risk, high reward, unconventional and often unexpected, but can be very
-      effective if executed correctly. Your goal is to coach the user by advising them on
-      what they can do to make their strategy more effective with optimal 'cheese'.
-      Keep your message relatively short and concise.
-    """
-  },
-  # {
-  #   name: 'OpenAI5',
-  #   system_prompt: """
-  #     pixel-perfect precision
-  #   """
-  # }
-]
-
-# Clean up system prompt formatting (remove newlines, etc) that is just there to make the code pretty
+# Load and set up the council
+council_config  = YAML.load_file("council.yml")
+COUNCIL_MEMBERS = council_config["council_members"]
 COUNCIL_MEMBERS.each do |member|
-  member[:system_prompt] = member[:system_prompt].split("\n").join(" ").gsub(/\s+/, ' ').strip
+  member['system_prompt'] = member['system_prompt'].split("\n").join(" ").gsub(/\s+/, ' ').strip
 end
 
 def split_long_message_into_irc_chunks(message, max_chunk_length=420)
@@ -137,7 +57,7 @@ def create_council_member(name, system_prompt, speaking_mutex)
 
   client = Zircon.new(server: SERVER, port: PORT, channel: CHANNEL, username: name)
   client.on_message do |message|
-    message_from_council = COUNCIL_MEMBERS.map { |m| m[:name] }.include?(message.from)
+    message_from_council = COUNCIL_MEMBERS.map { |m| m['name'] }.include?(message.from)
 
     if message.type == 'privmsg' && message.to == CHANNEL && !message_from_council
       # Limit chat history to N most recent messages
@@ -146,8 +66,8 @@ def create_council_member(name, system_prompt, speaking_mutex)
 
       # If the message is directed to any particular council member, only respond if you
       # are that council member. If the message isn't directed, always respond.
-      message_directed_to = COUNCIL_MEMBERS.detect { |member| message.body.start_with?(member[:name]) }
-      should_respond      = message_directed_to.nil? || message_directed_to[:name] == name
+      message_directed_to = COUNCIL_MEMBERS.detect { |member| message.body.start_with?(member['name']) }
+      should_respond      = message_directed_to.nil? || message_directed_to['name'] == name
 
       # puts "Message directed to... #{message_directed_to}"
       # puts "Should respond? #{should_respond}"
@@ -197,9 +117,9 @@ end
 # Create and run the bots in separate threads
 puts "Adding #{COUNCIL_MEMBERS.length} council members..."
 bot_threads = COUNCIL_MEMBERS.map do |member|
-  puts "\t#{member[:name]}..."
+  puts "\t#{member['name']}..."
   Thread.new do
-    bot = create_council_member(member[:name], member[:system_prompt], message_mutex)
+    bot = create_council_member(member['name'], member['system_prompt'], message_mutex)
     bot.run!
   end
 end
