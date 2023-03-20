@@ -21,6 +21,7 @@ COUNCIL_MEMBERS.each do |member|
 end
 
 def split_long_message_into_irc_chunks(message, max_chunk_length=420)
+  return ""        if message.nil?
   return [message] if message.length <= max_chunk_length
 
   chunks = []
@@ -92,11 +93,13 @@ def create_council_member(name, system_prompt, speaking_mutex)
         retort_chunks = split_long_message_into_irc_chunks(retort)
         speaking_mutex.synchronize do
           retort_chunks.each_with_index do |chunk, i|
-            chunk = "#{message.from}: #{chunk}" if i == 0
-            client.privmsg CHANNEL, ":#{chunk}"
+            if !chunk.blank?
+              chunk = "#{message.from}: #{chunk}" if i == 0
+              client.privmsg CHANNEL, ":#{chunk}"
 
-            # Add a small delay between messages to make sure they all arrive in order :)
-            sleep 0.5
+              # Add a small delay between messages to make sure they all arrive in order :)
+              sleep 0.5
+            end
           end
 
           # Also add a small delay between speakers to signify the end of their turn
