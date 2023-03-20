@@ -16,9 +16,37 @@ client = Zircon.new(
 )
 openai = OpenAI::Client.new(access_token: ENV.fetch("OPENAI_API_KEY"))
 
-# client.on_privmsg do |message|
-#   client.privmsg "#chatroid", ":zircon!"
-# end
+def split_long_message_into_irc_chunks(message, max_chunk_length=420)
+  return [message] if message.length <= max_chunk_length
+
+  chunks = []
+  current_chunk = ""
+
+  message.split(/\n/).each_with_index do |line, line_index|
+    # Send any standalone lines shorter than max_chunk_length as a line of their own
+    if line.length <= max_chunk_length
+      chunks << line
+      next
+    end
+
+    # If this line is longer than the max_chunk_length, we need to send it over multiple lines.
+    line.split(/\s+/).each_with_index do |word, word_index|
+      # If we have room in this chunk for the next word, add it.
+      if current_chunk.size + word.size + 1 <= max_chunk_length
+        current_chunk += ' ' unless current_chunk.empty? || current_chunk.end_with?("\n") || word_index.zero?
+        current_chunk += word
+
+      # If we DON'T have room in this chunk for the next word, end the chunk and start a new one.
+      else
+        chunks << current_chunk
+        current_chunk = word
+      end
+    end
+  end
+
+  chunks << current_chunk unless current_chunk.empty?
+  chunks
+end
 
 client.on_message do |message|
   # puts "*** `on_message` responds with all received message ***"
@@ -55,9 +83,15 @@ client.on_message do |message|
       retort = response.dig("choices", 0, "message", "content")
       puts "Message to respond with:"
       puts retort
+      retort_chunks = split_long_message_into_irc_chunks(retort)
 
-      # Send response
-      client.privmsg CHANNEL, ":#{message.from}: #{retort}"
+      retort_chunks.each_with_index do |chunk, i|
+        chunk = "#{message.from}: #{chunk}" if i == 0
+        client.privmsg CHANNEL, ":#{chunk}"
+
+        # Add a small delay between messages to make sure they all arrive in order :)
+        sleep 0.5
+      end
     end
   end
 end
