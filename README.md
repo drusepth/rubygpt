@@ -1,5 +1,5 @@
 # rubygpt
-IRC chatbot using the ChatGPT API
+IRC chatbots using the ChatGPT API
 
 ## The bots, in brief
 
