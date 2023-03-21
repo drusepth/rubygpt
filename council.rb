@@ -22,7 +22,6 @@ end
 
 def split_long_message_into_irc_chunks(message, max_chunk_length=420)
   return ""        if message.nil?
-  return [message] if message.length <= max_chunk_length
 
   chunks = []
   current_chunk = ""
