@@ -17,7 +17,7 @@ client = Zircon.new(
 openai = OpenAI::Client.new(access_token: ENV.fetch("OPENAI_API_KEY"))
 
 def split_long_message_into_irc_chunks(message, max_chunk_length=420)
-  return [message] if message.length <= max_chunk_length
+  return "" if message.nil?
 
   chunks = []
   current_chunk = ""
