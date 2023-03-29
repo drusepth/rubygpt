@@ -62,7 +62,7 @@ client.on_message do |message|
     # Limit chat history to 6 most recent messages
     recent_chat_history = recent_chat_history.last(6)
     formatted_chat_history = recent_chat_history.map do |message|
-      { role: 'user', content: message }
+      { role: 'user', name: message.from, content: message }
     end
 
     should_respond = rand(1..100) == 1 || (message.body && message.body.start_with?("#{NICK}:"))
@@ -70,7 +70,7 @@ client.on_message do |message|
       # Use ChatGPT API
       system_message = {
         "role": "system", 
-        "content": "You are in a group chat with multiple senior programmers. DO NOT MENTION THAT YOU ARE A LANGUAGE MODEL. Don't say your name, which is #{NICK}, or refer any user by their name. You have expert knowledge of many programming languages and frameworks, including Go, Ruby, Python, C, Javascript, and others. Please answer with detailed programming help, using documentation and experience. Do not continue on from any previous messages. Start your response as a new message. Only generate one message a time. Only speak on behalf of yourself, not any user."
+        "content": "You are in a group chat with multiple senior programmers. DO NOT MENTION THAT YOU ARE A LANGUAGE MODEL. Don't say your name, which is #{NICK}, or refer to any user by 'User'. You have expert knowledge of many programming languages and frameworks, including Go, Ruby, Python, C, Javascript, and others. Please answer with detailed programming help, using documentation and experience. Do not continue on from any previous messages. Start your response as a new message. Only generate one message a time. Only speak on behalf of yourself, not any user."
       }
       puts "Chat history:"
       puts [system_message, formatted_chat_history].flatten
